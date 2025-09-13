@@ -2,20 +2,24 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# Copy only package files first for caching
-COPY front-end/package*.json ./front-end/
-WORKDIR /app/front-end
+# Copy package.json and lockfile
+COPY front-end/package.json front-end/package-lock.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of frontend code
+# Copy rest of frontend code
 COPY front-end/ ./
 
-# Build Next.js (static export)
-RUN npm run build && npm run export
+# Build (with static export via next.config.js)
+RUN npm run build
 
 # ---- Runtime Stage ----
 FROM nginx:alpine
 WORKDIR /usr/share/nginx/html
-COPY --from=build /app/front-end/out ./
+
+# Copy exported static site
+COPY --from=build /app/out ./
+
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
