@@ -1,0 +1,40 @@
+services:
+  # -------------------------
+  # Backend (Java + Maven)
+  # -------------------------
+  - type: web
+    name: p2plink-backend
+    env: docker
+    plan: free        # you can change to starter/standard later
+    dockerfilePath: ./Dockerfile.backend
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8080
+
+  # -------------------------
+  # Frontend (Next.js)
+  # -------------------------
+  - type: web
+    name: p2plink-frontend
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.frontend
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 3000
+
+  # -------------------------
+  # Nginx (Reverse Proxy)
+  # -------------------------
+  - type: web
+    name: p2plink-nginx
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.nginx
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 80
