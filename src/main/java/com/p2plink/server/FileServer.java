@@ -25,7 +25,7 @@ public class FileServer implements Runnable {
         try (Selector selector = Selector.open();
              ServerSocketChannel serverChannel = ServerSocketChannel.open()) {
 
-            serverChannel.bind(new InetSocketAddress(port));
+            serverChannel.bind(new InetSocketAddress("0.0.0.0", port));
             serverChannel.configureBlocking(false);
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
