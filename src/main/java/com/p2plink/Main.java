@@ -33,8 +33,11 @@ public class Main {
                    fileController.stop();
                }
            } else {
-               // No console → keep server alive
-               Thread.currentThread().join();
+               try {
+                   Thread.currentThread().join();
+               } catch (InterruptedException e) {
+                   Thread.currentThread().interrupt();
+               }
            }
 
        }
