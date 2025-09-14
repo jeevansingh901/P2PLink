@@ -24,13 +24,19 @@ public class Main {
                fileController.stop();
            }));
 
-           System.out.println("Press Enter to Stop Server");
-           BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-           String input = reader.readLine(); // waits until user presses ENTER
-           if (input == null || input.trim().isEmpty() || "exit".equalsIgnoreCase(input.trim())) {
-               System.out.println("Stopping server...");
-               fileController.stop();
+           if (System.console() != null) {
+               System.out.println("Press Enter to Stop Server");
+               BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+               String input = reader.readLine();
+               if (input == null || input.trim().isEmpty() || "exit".equalsIgnoreCase(input.trim())) {
+                   System.out.println("Stopping server...");
+                   fileController.stop();
+               }
+           } else {
+               // No console → keep server alive
+               Thread.currentThread().join();
            }
+
        }
        catch (IOException e) {
            System.err.println("Failed to start server at port 8080");
