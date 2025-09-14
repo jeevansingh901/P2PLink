@@ -17,7 +17,7 @@ services:
   # Frontend (Next.js)
   # -------------------------
   - type: web
-    name: p2plink-frontend
+    name: p2plink-ui
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile.frontend

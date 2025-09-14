@@ -1,6 +1,4 @@
 /** @type {import('next').NextConfig} */
-const isProd = process.env.NODE_ENV === "production";
-
 const nextConfig = {
     reactStrictMode: true,
 
@@ -12,15 +10,9 @@ const nextConfig = {
     },
 
     async rewrites() {
-        if (isProd) {
+
             // In production → let Nginx handle /api
             return [];
-        } else {
-            // In dev → forward /api to local backend
-            return [
-                { source: "/api/:path*", destination: "http://localhost:8080/:path*" }
-            ];
-        }
     },
 };
 
