@@ -27,7 +27,7 @@ public class FileController {
 
 
     public FileController(int httpPort, int nioPort) throws IOException {
-        this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+        this.server = HttpServer.create(new InetSocketAddress("0.0.0.0", httpPort), 0);
         this.uploadDir = System.getProperty("java.io.tmpdir") + File.separator + "peerlink-uploads";
         this.executorService = Executors.newFixedThreadPool(16);
         this.scheduled = Executors.newScheduledThreadPool(2);
