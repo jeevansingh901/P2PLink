@@ -3,10 +3,11 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package.json and lockfile
-COPY front-end/package.json front-end/package-lock.json ./
+COPY front-end/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Update npm to latest and install deps
+RUN npm install -g npm@latest
+RUN npm ci --legacy-peer-deps --registry=https://registry.npmjs.org/
 
 # Copy rest of frontend code
 COPY front-end/ ./
@@ -22,6 +23,6 @@ WORKDIR /usr/share/nginx/html
 # Copy exported static site
 COPY --from=build /app/out ./
 
-# Nginx default is port 80, not 3000
+# Nginx default is port 80
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
