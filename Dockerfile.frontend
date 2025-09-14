@@ -5,24 +5,29 @@ WORKDIR /app
 # Copy package.json and lockfile
 COPY front-end/package*.json ./
 
-# Update npm to latest and install deps
+# Install dependencies
 RUN npm install -g npm@latest
 RUN npm ci --legacy-peer-deps --registry=https://registry.npmjs.org/
 
-# Copy rest of frontend code
+# Copy frontend code
 COPY front-end/ ./
 
-# Build (Next.js will output to /out if next.config.js has output: 'export')
+# Build Next.js (server mode, generates .next not /out)
 RUN npm run build
 
 # ---- Runtime Stage ----
-FROM nginx:alpine
-# Nginx serves files from /usr/share/nginx/html by default
-WORKDIR /usr/share/nginx/html
+FROM node:20-alpine AS runtime
+WORKDIR /app
 
-# Copy exported static site
-COPY --from=build /app/out ./
+ENV NODE_ENV=production
 
-# Nginx default is port 80
+# Copy necessary files
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/node_modules ./node_modules
+
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+
+# Run Next.js server
+CMD ["npm", "start"]
