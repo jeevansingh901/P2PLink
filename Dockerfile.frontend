@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package.json and lockfile
@@ -11,15 +11,17 @@ RUN npm install
 # Copy rest of frontend code
 COPY front-end/ ./
 
-# Build (with static export via next.config.js)
+# Build (Next.js will output to /out if next.config.js has output: 'export')
 RUN npm run build
 
 # ---- Runtime Stage ----
 FROM nginx:alpine
+# Nginx serves files from /usr/share/nginx/html by default
 WORKDIR /usr/share/nginx/html
 
 # Copy exported static site
 COPY --from=build /app/out ./
 
+# Nginx default is port 80, not 3000
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
