@@ -13,6 +13,15 @@ const nextConfig = {
     async rewrites() {
         return [
             {
+                source: "/api/:path*",
+                destination: "https://p2plink-backend.onrender.com/api/:path*",
+            },
+        ];
+    },
+
+   /* async rewrites() {
+        return [
+            {
                 source: '/api/upload',
                 destination: 'http://backend:8080/upload', // ✅ works in Docker Compose
             },
@@ -25,7 +34,7 @@ const nextConfig = {
                 destination: 'http://backend:8080/events/:fileId',
             },
         ];
-    },
+    },*/
 };
 
 module.exports = nextConfig;
