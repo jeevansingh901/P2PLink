@@ -8,6 +8,13 @@ RUN mvn clean package -DskipTests
 # ---- Runtime Stage ----
 FROM eclipse-temurin:21-jdk
 WORKDIR /app
+
+# Copy JAR
 COPY --from=build /app/target/*.jar app.jar
+
+# Expose the Render port dynamically (will be mapped at runtime)
+# This line is optional on Render, but helps locally
 EXPOSE 8080
-CMD ["java", "-jar", "app.jar"]
+
+# Use $PORT from Render, fallback to 8080 locally
+CMD ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8080}"]

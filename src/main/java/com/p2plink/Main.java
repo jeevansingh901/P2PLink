@@ -11,7 +11,9 @@ import java.io.InputStreamReader;
 public class Main {
     public static void main(String[] args)  {
        try {
-           FileController fileController = new FileController(8080,9090);
+           int apiPort = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
+
+           FileController fileController = new FileController(apiPort,9090);
            fileController.start();
            System.out.println("P2P Link Server Started at http://localhost:8080/");
            System.out.println("UI Server Started at http://localhost:3000/");
