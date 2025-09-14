@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig = {
     reactStrictMode: true,
 
@@ -8,33 +10,39 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
-    output: 'export',
 
     async rewrites() {
-        return [
-            {
-                source: "/api/:path*",
-                destination: "https://p2plink-backend.onrender.com/api/:path*",
-            },
-        ];
+        if (isProd) {
+            // In production → let Nginx handle /api
+            return [];
+        } else {
+            // In dev → forward /api to local backend
+            return [
+                { source: "/api/:path*", destination: "http://localhost:8080/:path*" }
+            ];
+        }
     },
-
-   /* async rewrites() {
-        return [
-            {
-                source: '/api/upload',
-                destination: 'http://backend:8080/upload', // ✅ works in Docker Compose
-            },
-            {
-                source: '/api/download/:fileId',
-                destination: 'http://backend:8080/download/:fileId',
-            },
-            {
-                source: '/api/events/:fileId',
-                destination: 'http://backend:8080/events/:fileId',
-            },
-        ];
-    },*/
 };
 
 module.exports = nextConfig;
+
+
+/* async rewrites() {
+     return [
+         {
+             source: '/api/upload',
+             destination: 'http://backend:8080/upload', // ✅ works in Docker Compose
+         },
+         {
+             source: '/api/download/:fileId',
+             destination: 'http://backend:8080/download/:fileId',
+         },
+         {
+             source: '/api/events/:fileId',
+             destination: 'http://backend:8080/events/:fileId',
+         },
+     ];
+ },*/
+
+
+
