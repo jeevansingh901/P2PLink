@@ -47,6 +47,12 @@ public class FileController {
         server.createContext("/upload", new UploadHandler(uploadService));
         server.createContext("/download", new DownloadHandler(downloadService));
         server.createContext("/", new CorsHandler());
+        server.createContext("/api/health", exchange -> {
+            String response = "OK";
+            exchange.sendResponseHeaders(200, response.length());
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.close();
+        });
         scheduled.scheduleAtFixedRate(() -> {
             int removed = registry.cleanupExpired();
             if (removed > 0) {
