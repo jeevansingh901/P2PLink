@@ -1,86 +1,59 @@
 package com.p2plink.services;
 
-import com.p2plink.parser.Multiparser;
-import com.p2plink.utils.ParseResult;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import org.apache.commons.io.IOUtils;
-
-import java.io.*;
-import java.util.UUID;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class UploadService {
 
+    private final Path uploadDir = Paths.get("uploads");
     private final FileRegistry registry;
     private final SseHub sseHub;
 
-    public UploadService(FileRegistry registry) {
-        this(registry, null);
-    }
+    // Track upload progress by fileName
+    private final ConcurrentHashMap<String, AtomicLong> uploadedBytesMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> totalSizeMap = new ConcurrentHashMap<>();
 
     public UploadService(FileRegistry registry, SseHub sseHub) {
         this.registry = registry;
         this.sseHub = sseHub;
+        try {
+            Files.createDirectories(uploadDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create upload dir", e);
+        }
     }
 
-    public void handleFileUpload(HttpExchange exchange) throws IOException {
-        Headers requestHeader = exchange.getRequestHeaders();
-        Headers responseHeader = exchange.getResponseHeaders();
+    public void saveChunk(String fileName, int chunkIndex, int totalChunks, long totalSize, InputStream in) throws IOException {
+        Path partFile = uploadDir.resolve(fileName + ".part");
+        totalSizeMap.putIfAbsent(fileName, totalSize);
 
-        String uploadDir = System.getProperty("java.io.tmpdir") + File.separator + "peerlink-uploads";
-        String originalName = requestHeader.getFirst("X-Filename"); // frontend can pass this
-        if (originalName == null || originalName.isBlank()) {
-            originalName = "unnamed-file";
-        }
-        String passphrase = requestHeader.getFirst("X-Passphrase");
-        Long ttlMillis = null; // optional TTL
-        String ttlHeader = requestHeader.getFirst("X-TTL-Millis");
-        if (ttlHeader != null) {
-            try {
-                ttlMillis = Long.parseLong(ttlHeader);
-            } catch (NumberFormatException ignored) {
-                System.err.println("Couldn't parse expiry header for upload");
-            }
-        }
-        boolean oneTime = "true".equalsIgnoreCase(requestHeader.getFirst("X-One-Time"));
-
-
-        File uploadDirFile = new File(uploadDir);
-        if (!uploadDirFile.exists()) {
-            uploadDirFile.mkdirs();
-        }
-        String uniqueName = UUID.randomUUID().toString() + "-" + originalName;
-        File savedFile = new File(uploadDirFile, uniqueName);
-        long bytes = 0;
-        try (InputStream in = exchange.getRequestBody();
-             FileOutputStream out = new FileOutputStream(savedFile)) {
+        long bytesThisChunk = 0;
+        try (OutputStream out = Files.newOutputStream(partFile, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
-                bytes += bytesRead;
+                bytesThisChunk += bytesRead;
             }
         }
-        System.out.println("Total bytes uploaded: " + bytes);
-        String fileId = registry.registerFile(savedFile.getAbsolutePath(), originalName, ttlMillis, oneTime, passphrase);
-       //Optional
-        if (sseHub != null) {
-            String payload = "{\"event\":\"upload_complete\",\"fileId\":\"" + fileId + "\",\"size\":" + bytes + "}";
-            sseHub.publish(fileId, "upload", payload);
-        }
-        String response = "{ \"fileId\": \"" + fileId + "\", \"size\": " + bytes + ", \"oneTime\": " + oneTime + ", \"protected\": " + (passphrase != null && !passphrase.isBlank()) + " }";
-        responseHeader.add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, response.getBytes().length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(response.getBytes());
-        }
+        uploadedBytesMap.computeIfAbsent(fileName, k -> new AtomicLong(0)).addAndGet(bytesThisChunk);
+        long uploaded = uploadedBytesMap.get(fileName).get();
+        long total = totalSizeMap.get(fileName);
+        double percent = (double) uploaded / total * 100.0;
+        String json = String.format("{\"uploaded\":%d,\"total\":%d,\"percent\":%.2f}", uploaded, total, percent);
+        sseHub.publish(fileName, "progress", json);
     }
 
-
-    private void sendResponse(HttpExchange exchange, int statusCode, String message) throws IOException {
-        exchange.sendResponseHeaders(statusCode, message.getBytes().length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(message.getBytes());
-        }
+    public String finalizeUpload(String fileName) throws IOException {
+        Path partFile = uploadDir.resolve(fileName + ".part");
+        Path finalFile = uploadDir.resolve(fileName);
+        Files.move(partFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
+        String code = registry.registerFile(finalFile.toString(), fileName, null, false, null);
+        sseHub.publish(fileName, "completed", "{\"status\":\"completed\",\"code\":\"" + code + "\"}");
+        return code;
     }
 }

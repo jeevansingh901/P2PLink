@@ -11,6 +11,7 @@ export default function Home() {
     const [isUploading, setIsUploading] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [fileId, setFileId] = useState<string | null>(null);
+    const [progress, setProgress] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'upload' | 'download'>('upload');
 
     const handleFileUpload = async (
@@ -21,18 +22,42 @@ export default function Home() {
     ) => {
         setUploadedFile(file);
         setIsUploading(true);
+        setProgress(0);
 
         try {
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/octet-stream',
-                'X-Filename': file.name,
-            };
-            if (passphrase) headers['X-Passphrase'] = passphrase;
-            if (ttlMillis) headers['X-TTL-Millis'] = ttlMillis.toString();
-            if (oneTime) headers['X-One-Time'] = 'true';
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            let code: string | null = null;
 
-            const response = await axios.post('/api/upload', file, { headers });
-            setFileId(response.data.fileId);
+            for (let i = 0; i < file.size; i += CHUNK_SIZE) {
+                const chunk = file.slice(i, i + CHUNK_SIZE);
+                const chunkIndex = Math.floor(i / CHUNK_SIZE);
+
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/octet-stream',
+                    'X-File-Name': file.name,
+                    'X-Chunk-Index': chunkIndex.toString(),
+                    'X-Total-Chunks': totalChunks.toString(),
+                    'X-File-Size': file.size.toString(),
+                };
+                if (passphrase) headers['X-Passphrase'] = passphrase;
+                if (ttlMillis) headers['X-TTL-Millis'] = ttlMillis.toString();
+                if (oneTime) headers['X-One-Time'] = 'true';
+
+                const res = await axios.post('/api/upload', chunk, { headers });
+
+                // Update progress locally
+                const uploaded = Math.min(i + CHUNK_SIZE, file.size);
+                setProgress((uploaded / file.size) * 100);
+
+                if (chunkIndex === totalChunks - 1) {
+                    code = res.data.fileId;
+                }
+            }
+
+            if (code) {
+                setFileId(code);
+            }
         } catch (error) {
             console.error('Error uploading file:', error);
             alert('Failed to upload file. Please try again.');
@@ -56,15 +81,13 @@ export default function Home() {
                 throw new Error(`Failed to download file: ${response.statusText}`);
             }
 
-            // Extract filename from Content-Disposition
             const disposition = response.headers.get('content-disposition');
             let filename = 'downloaded-file';
             if (disposition) {
-                const match = disposition.match(/filename="(.+)"/);
+                const match = disposition.match(/filename=\"(.+)\"/);
                 if (match && match[1]) filename = match[1];
             }
 
-            // Save blob
             const blob = await response.blob();
             const objectUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -129,8 +152,15 @@ export default function Home() {
 
                         {isUploading && (
                             <div className="mt-6 text-center">
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                                <p className="mt-2 text-gray-600">Uploading file...</p>
+                                <div className="w-full bg-gray-200 rounded-full h-4">
+                                    <div
+                                        className="bg-blue-500 h-4 rounded-full transition-all"
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                                <p className="mt-2 text-gray-600">
+                                    Uploading... {progress.toFixed(2)}%
+                                </p>
                             </div>
                         )}
 

@@ -12,7 +12,12 @@ const nextConfig = {
     async rewrites() {
 
             // In production → let Nginx handle /api
-            return [];
+            return [
+                {
+                    source: "/api/:path*",
+                    destination: "http://backend:8080/:path*",  // ✅ works in Docker Compose
+                },
+            ];
     },
 };
 
